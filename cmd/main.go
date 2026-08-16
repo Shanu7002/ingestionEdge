@@ -37,6 +37,15 @@ func main() {
 			for payload := range jobQueue {
 				// TODO: serialize to protobuf & publish to RabbitMQ exchange
 
+				// just simulate to see the UDP server happen
+				// payload arrived intact
+				log.Printf("Worker %d processed | Priority: %d | Time: %d | Data: %s",
+					workerID, payload.Priority, payload.IngestedAt, string(payload.Data))
+
+				// simulate latency
+				// time.Sleep(50 * time.Millisecond) // for stress test
+				time.Sleep(10 * time.Millisecond)
+
 				if payload.Release != nil {
 					payload.Release()
 				}
