@@ -31,10 +31,13 @@ func StartHTTPServer(
 		}
 		defer r.Body.Close()
 
+		timestamp := time.Now().UnixNano()
+
 		payload := domain.IngestionPayload{
-			Priority: 1,
-			Data:     body,
-			Release:  nil,
+			Priority:   1,
+			IngestedAt: timestamp,
+			Data:       body,
+			Release:    nil,
 		}
 
 		select {

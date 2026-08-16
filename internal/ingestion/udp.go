@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/Shanu7002/ingestionEdge/internal/domain"
 )
@@ -33,13 +34,17 @@ func StartUDPServer(
 		for {
 			bufPtr := pool.Get().(*[]byte)
 			n, _, err := udpConn.ReadFromUDP(*bufPtr)
+
+			timestamp := time.Now().UnixNano()
+
 			if err != nil {
 				return
 			}
 
 			payload := domain.IngestionPayload{
-				Priority: 0,
-				Data:     (*bufPtr)[:n],
+				Priority:   0,
+				IngestedAt: timestamp,
+				Data:       (*bufPtr)[:n],
 				Release: func() {
 					pool.Put(bufPtr)
 				},
