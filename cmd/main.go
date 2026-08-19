@@ -18,7 +18,8 @@ func main() {
 	log.Println("Initializing Edge API Orchestrator...")
 
 	var wg sync.WaitGroup
-	jobQueue := make(chan domain.IngestionPayload, 10000)
+	metricsQueue := make(chan domain.IngestionPayload, 10000)
+	alertsQueue := make(chan domain.IngestionPayload, 1000)
 
 	udpBufferPool := &sync.Pool{
 		New: func() interface{} {
@@ -34,33 +35,46 @@ func main() {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			for payload := range jobQueue {
-				// TODO: serialize to protobuf & publish to RabbitMQ exchange
 
-				// just simulate to see the UDP server happen
-				// payload arrived intact
-				log.Printf("Worker %d processed | Priority: %d | Time: %d | Data: %s",
-					workerID, payload.Priority, payload.IngestedAt, string(payload.Data))
+			for {
+				var payload domain.IngestionPayload
+				var ok bool
 
-				// simulate latency
-				// time.Sleep(50 * time.Millisecond) // for stress test
-				time.Sleep(10 * time.Millisecond)
+				// the worker checks the alertsQueue first.
+				select {
+				case payload, ok = <-alertsQueue:
+					if !ok {
+						return
+					} // channel closed during shutdown
+					processPayload(workerID, payload)
+					continue // back to see if there are more alerts
+				default:
+				}
 
-				if payload.Release != nil {
-					payload.Release()
+				select {
+				case payload, ok = <-alertsQueue:
+					if !ok {
+						return
+					}
+					processPayload(workerID, payload)
+				case payload, ok = <-metricsQueue:
+					if !ok {
+						return
+					}
+					processPayload(workerID, payload)
 				}
 			}
 		}(i)
 	}
 
-	udpConn, err := ingestion.StartUDPServer(":8125", jobQueue, &wg, udpBufferPool)
+	udpConn, err := ingestion.StartUDPServer(":8125", metricsQueue, &wg, udpBufferPool)
 	if err != nil {
 		log.Fatalf("Fatal UDP error: %v", err)
 	}
 
-	httpServer := ingestion.StartHTTPServer(":8080", jobQueue, &wg)
+	httpServer := ingestion.StartHTTPServer(":8080", alertsQueue, &wg)
 
-	grpcServer, err := ingestion.StartGRPCServer(":9090", jobQueue, &wg)
+	grpcServer, err := ingestion.StartGRPCServer(":9090", alertsQueue, &wg)
 	if err != nil {
 		log.Fatalf("Fatal gRPC error: %v", err)
 	}
@@ -70,7 +84,6 @@ func main() {
 	<-stop
 
 	log.Println("SIGTERM received. Halting network ingestion...")
-
 	udpConn.Close()
 	grpcServer.GracefulStop()
 
@@ -80,8 +93,24 @@ func main() {
 		log.Printf("HTTP shutdown error: %v", err)
 	}
 
-	close(jobQueue)
+	close(alertsQueue)
+	close(metricsQueue)
 
 	wg.Wait()
 	log.Println("Edge API terminated securely. Zero data loss on critical queues.")
+}
+
+// Helper function to keep the loop clean
+func processPayload(workerID int, payload domain.IngestionPayload) {
+	// debugging
+	// log.Printf("Worker %d | Priority: %d | Time: %d | Data: %s", workerID, payload.Priority, payload.IngestedAt, string(payload.Data))
+
+	// TODO: Publish to RabbitMQ
+
+	// Simulate RabbitMQ I/O Latency
+	time.Sleep(10 * time.Millisecond)
+
+	if payload.Release != nil {
+		payload.Release()
+	}
 }
