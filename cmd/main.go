@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/Shanu7002/ingestionEdge/internal/domain"
+	"github.com/Shanu7002/ingestionEdge/internal/env"
 	"github.com/Shanu7002/ingestionEdge/internal/ingestion"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func main() {
@@ -31,23 +33,53 @@ func main() {
 	numWorkers := runtime.NumCPU() * 2
 	log.Printf("Spawning %d RabbitMQ publisher workers", numWorkers)
 
+	log.Println("Connecting to RabbitMQ...")
+
+	rabbitURL := env.GetString("RABBITMQ_URL", "amqp://secretUser:secretPassword@localhost:5672/")
+
+	conn, err := amqp.Dial(rabbitURL)
+	if err != nil {
+		log.Fatalf("Fatal: Failed to connect to RabbitMQ: %v", err)
+	}
+	defer conn.Close()
+
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
 
+			ch, err := conn.Channel()
+			if err != nil {
+				log.Printf("Worker %d failed to open channel: %v", workerID, err)
+				return
+			}
+			defer ch.Close()
+
+			err = ch.ExchangeDeclare(
+				"telemetry.exchange", // name
+				"direct",             // type (O(1) routing)
+				true,                 // durable
+				false,                // auto-deleted
+				false,                // internal
+				false,                // no-wait
+				nil,                  // arguments
+			)
+			if err != nil {
+				log.Printf("Worker %d failed to declare exchange: %v", workerID, err)
+				return
+			}
+
 			for {
 				var payload domain.IngestionPayload
 				var ok bool
 
-				// the worker checks the alertsQueue first.
 				select {
 				case payload, ok = <-alertsQueue:
 					if !ok {
 						return
-					} // channel closed during shutdown
-					processPayload(workerID, payload)
-					continue // back to see if there are more alerts
+					}
+					processPayload(workerID, payload, ch)
+					continue
 				default:
 				}
 
@@ -56,12 +88,12 @@ func main() {
 					if !ok {
 						return
 					}
-					processPayload(workerID, payload)
+					processPayload(workerID, payload, ch)
 				case payload, ok = <-metricsQueue:
 					if !ok {
 						return
 					}
-					processPayload(workerID, payload)
+					processPayload(workerID, payload, ch)
 				}
 			}
 		}(i)
@@ -100,15 +132,34 @@ func main() {
 	log.Println("Edge API terminated securely. Zero data loss on critical queues.")
 }
 
-// Helper function to keep the loop clean
-func processPayload(workerID int, payload domain.IngestionPayload) {
+func processPayload(workerID int, payload domain.IngestionPayload, ch *amqp.Channel) {
 	// debugging
 	// log.Printf("Worker %d | Priority: %d | Time: %d | Data: %s", workerID, payload.Priority, payload.IngestedAt, string(payload.Data))
 
-	// TODO: Publish to RabbitMQ
+	routingKey := "route.metric"
+	if payload.Priority == 1 {
+		routingKey = "route.alert"
+	}
 
-	// Simulate RabbitMQ I/O Latency
-	time.Sleep(10 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err := ch.PublishWithContext(ctx,
+		"telemetry.exchange", // exchange
+		routingKey,           // routing key
+		false,                // mandatory
+		false,                // immediate
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,            // save to disk (for alerts)
+			ContentType:  "application/octet-stream", // Binary Protobuf
+			Timestamp:    time.Unix(0, payload.IngestedAt),
+			Body:         payload.Data,
+		})
+
+	if err != nil {
+		log.Printf("Worker %d | Failed to publish payload: %v", workerID, err)
+		// In a production system, you would push this back into a retry queue here.
+	}
 
 	if payload.Release != nil {
 		payload.Release()
