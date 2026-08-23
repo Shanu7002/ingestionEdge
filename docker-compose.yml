@@ -1,2 +1,58 @@
 services:
-  
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: telemetry-rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672" # amqp
+      - "15672:15672" # interface
+    environment:
+      RABBITMQ_DEFAULT_USER: secretUser
+      RABBITMQ_DEFAULT_PASS: secretPassword
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:
+    driver: local
+
+#
+#    networks:
+#      - telemetry-net
+#
+#  edge-api:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    container_name: telemetry-edge-api
+#    ports:
+#      - "8125:8125/udp"
+#      - "8080:8080"
+#      - "9090:9090"
+#    environment:
+#      - RABBITMQ_URL=amqp://secretUser:secretPassword@rabbitmq:5672/
+#    depends_on:
+#      rabbitmq:
+#        condition: service_healthy
+#    deploy:
+#      resources:
+#        limits:
+#          memory: 256M
+#          cpus: "1.0"
+#    networks:
+#      - telemetry-net
+#    restart: unless-stopped
+#
+#volumes:
+#  rabbitmq_data:
+#    driver: local
+#
+#networks:
+#  telemetry-net:
+#    driver: bridge
