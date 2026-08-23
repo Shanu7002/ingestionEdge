@@ -37,9 +37,26 @@ func main() {
 
 	rabbitURL := env.GetString("RABBITMQ_URL", "amqp://secretUser:secretPassword@localhost:5672/")
 
-	conn, err := amqp.Dial(rabbitURL)
+	var conn *amqp.Connection
+	var err error
+
+	// 15sec loop max
+	for attempt := 1; attempt <= 5; attempt++ {
+		conn, err = amqp.Dial(rabbitURL)
+		if err == nil {
+			log.Println("Successfully connected to RabbitMQ.")
+			break // success
+		}
+
+		log.Printf("Attempt %d: RabbitMQ not ready (%v)", attempt, err)
+		if attempt < 5 {
+			log.Println("Retrying in 3 seconds...")
+			time.Sleep(3 * time.Second)
+		}
+	}
+
 	if err != nil {
-		log.Fatalf("Fatal: Failed to connect to RabbitMQ: %v", err)
+		log.Fatalf("Fatal: Could not connect to RabbitMQ after 5 attempts: %v", err)
 	}
 	defer conn.Close()
 
