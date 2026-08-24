@@ -1,0 +1,23 @@
+run:
+  timeout: 3m
+  issues-exit-code: 1
+
+linters:
+  disable-all: true
+  enable:
+    # 1. Formatting & Style
+    - goimports
+    - gocritic      # Flags performance and style anti-patterns
+
+    # 2. Correctness & Error Handling
+    - errcheck      # FATAL: Forces you to check every returned error
+    - staticcheck   # The ultimate Go analyzer (drop-in replacement for go vet)
+    - ineffassign   # Detects unused variable assignments
+    - nilerr        # Prevents returning nil when an error occurred
+
+    # 3. Memory & Concurrency Safety
+    - bodyclose     # FATAL: Ensures HTTP response bodies are closed to prevent memory leaks
+    - copyloopvar   # Catches loop variable pointer captures (crucial for goroutines)
+
+    # 4. Security
+    - gosec         # Scans AST for security vulnerabilities
