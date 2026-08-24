@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -17,6 +18,14 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		// At this point, all defers inside run() have safely executed.
+		// It is now safe to exit the process.
+		log.Fatalf("Fatal error: %v", err)
+	}
+}
+
+func run() error {
 	log.Println("Initializing Edge API Orchestrator...")
 
 	var wg sync.WaitGroup
@@ -118,14 +127,14 @@ func main() {
 
 	udpConn, err := ingestion.StartUDPServer(":8125", metricsQueue, &wg, udpBufferPool)
 	if err != nil {
-		log.Fatalf("Fatal UDP error: %v", err)
+		return fmt.Errorf("Fatal UDP error: %v", err)
 	}
 
 	httpServer := ingestion.StartHTTPServer(":8080", alertsQueue, &wg)
 
 	grpcServer, err := ingestion.StartGRPCServer(":9090", alertsQueue, &wg)
 	if err != nil {
-		log.Fatalf("Fatal gRPC error: %v", err)
+		return fmt.Errorf("Fatal gRPC error: %v", err)
 	}
 
 	stop := make(chan os.Signal, 1)
@@ -139,14 +148,14 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Printf("HTTP shutdown error: %v", err)
+		return fmt.Errorf("HTTP shutdown error: %v", err)
 	}
 
 	close(alertsQueue)
 	close(metricsQueue)
 
 	wg.Wait()
-	log.Println("Edge API terminated securely. Zero data loss on critical queues.")
+	return fmt.Errorf("Edge API terminated securely. Zero data loss on critical queues.")
 }
 
 func processPayload(workerID int, payload domain.IngestionPayload, ch *amqp.Channel) {
