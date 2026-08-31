@@ -10,6 +10,12 @@ import (
 	"github.com/Shanu7002/ingestionEdge/internal/domain"
 )
 
+type InternalIngestionPayload struct {
+	Sender   string `json:"sender"`
+	Alert    string `json:"alert"`
+	Priority int    `json:"priority"`
+}
+
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed.\n Just GET is accepted here.", http.StatusMethodNotAllowed)
@@ -49,10 +55,29 @@ func Ingest(w http.ResponseWriter, jobQueue chan<- domain.IngestionPayload, r *h
 			http.Error(w, "Invalid priority", http.StatusBadRequest)
 			return
 		}
-		delete(fields, "priority")
 	}
 
-	data, err := json.Marshal(fields)
+	sender := "null"
+	if rawSender, ok := fields["sender"]; ok {
+		if err := json.Unmarshal(rawSender, &sender); err != nil {
+			http.Error(w, "Invalid sender", http.StatusBadRequest)
+			return
+		}
+	}
+
+	alert := ""
+	if rawAlert, ok := fields["alert"]; ok {
+		if err := json.Unmarshal(rawAlert, &alert); err != nil {
+			http.Error(w, "Invalid alert", http.StatusBadRequest)
+			return
+		}
+	}
+
+	data, err := json.Marshal(InternalIngestionPayload{
+		Sender:   sender,
+		Alert:    alert,
+		Priority: priority,
+	})
 	if err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
@@ -60,6 +85,7 @@ func Ingest(w http.ResponseWriter, jobQueue chan<- domain.IngestionPayload, r *h
 
 	payload := domain.IngestionPayload{
 		Priority:   priority,
+		Sender:     sender,
 		IngestedAt: time.Now().UnixNano(),
 		Data:       data,
 		Release:    nil,
