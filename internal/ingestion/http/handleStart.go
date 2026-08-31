@@ -1,8 +1,7 @@
-package ingestion
+package http
 
 import (
 	"errors"
-	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -19,33 +18,11 @@ func StartHTTPServer(
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ingest", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
+		Ingest(w, jobQueue, r)
+	})
 
-		body, err := io.ReadAll(io.LimitReader(r.Body, 10*1024))
-		if err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-		defer r.Body.Close()
-
-		timestamp := time.Now().UnixNano()
-
-		payload := domain.IngestionPayload{
-			Priority:   1,
-			IngestedAt: timestamp,
-			Data:       body,
-			Release:    nil,
-		}
-
-		select {
-		case jobQueue <- payload:
-			w.WriteHeader(http.StatusAccepted)
-		case <-time.After(50 * time.Millisecond):
-			http.Error(w, "Edge overloaded", http.StatusTooManyRequests)
-		}
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		HealthCheck(w, r)
 	})
 
 	server := &http.Server{

@@ -14,6 +14,7 @@ import (
 	"github.com/Shanu7002/ingestionEdge/internal/domain"
 	"github.com/Shanu7002/ingestionEdge/internal/env"
 	"github.com/Shanu7002/ingestionEdge/internal/ingestion"
+	ingestionhttp "github.com/Shanu7002/ingestionEdge/internal/ingestion/http"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -25,6 +26,8 @@ func main() {
 	}
 }
 
+// TODO: modularize this run function, there are too many responsabilities
+// IDEA: reuse the database to save metrics and alerts when rabbit its off and server up, we can reprocess this -> timestamp should come in payload or use the timestamp at database?
 func run() error {
 	log.Println("Initializing Edge API Orchestrator...")
 
@@ -130,7 +133,7 @@ func run() error {
 		return fmt.Errorf("Fatal UDP error: %v", err)
 	}
 
-	httpServer := ingestion.StartHTTPServer(":8080", alertsQueue, &wg)
+	httpServer := ingestionhttp.StartHTTPServer(":8080", alertsQueue, &wg)
 
 	grpcServer, err := ingestion.StartGRPCServer(":9090", alertsQueue, &wg)
 	if err != nil {
@@ -160,7 +163,7 @@ func run() error {
 
 func processPayload(workerID int, payload domain.IngestionPayload, ch *amqp.Channel) {
 	// debugging
-	// log.Printf("Worker %d | Priority: %d | Time: %d | Data: %s", workerID, payload.Priority, payload.IngestedAt, string(payload.Data))
+	// log.Printf("Worker %d | Sender: %s | Priority: %d | Time: %d | Data: %s", workerID, payload.Sender, payload.Priority, payload.IngestedAt, string(payload.Data))
 
 	routingKey := "route.metric"
 	if payload.Priority == 1 {

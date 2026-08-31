@@ -5,7 +5,7 @@ echo "Target: http://127.0.0.1:8080/ingest"
 echo "Concurrency: 50 threads | Total Requests: 1,000"
 echo "---------------------------------------------------"
 
-echo '{"alert": "OOM_Warning", "severity": "P0"}' > /tmp/payload.json
+echo '{"sender": "test", "alert": "OOM_Warning", "priority": 0}' > /tmp/payload.json
 
 # - seq 1 1000     : Generates numbers 1 to 1000
 # - xargs -P 50    : Spawns 50 parallel worker processes
