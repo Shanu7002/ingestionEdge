@@ -7,7 +7,7 @@ echo "Payload: 20,000 StatsD metrics"
 # subshell
 (
   for i in {1..20000}; do
-    echo -n "cpu.load.$i:99|g" > /dev/udp/127.0.0.1/8125
+    echo -n " EMAIL|ncpu.load.1:99|g" > /dev/udp/127.0.0.1/8125
   done
 )
 
