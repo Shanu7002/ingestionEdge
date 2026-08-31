@@ -163,7 +163,7 @@ func run() error {
 
 func processPayload(workerID int, payload domain.IngestionPayload, ch *amqp.Channel) {
 	// debugging
-	// log.Printf("Worker %d | Priority: %d | Time: %d | Data: %s", workerID, payload.Priority, payload.IngestedAt, string(payload.Data))
+	// log.Printf("Worker %d | Sender: %s | Priority: %d | Time: %d | Data: %s", workerID, payload.Sender, payload.Priority, payload.IngestedAt, string(payload.Data))
 
 	routingKey := "route.metric"
 	if payload.Priority == 1 {

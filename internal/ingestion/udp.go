@@ -1,6 +1,7 @@
 package ingestion
 
 import (
+	"bytes"
 	"log"
 	"net"
 	"sync"
@@ -33,18 +34,29 @@ func StartUDPServer(
 
 		for {
 			bufPtr := pool.Get().(*[]byte)
-			n, _, err := udpConn.ReadFromUDP(*bufPtr)
-
-			timestamp := time.Now().UnixNano()
-
+			n, senderAddr, err := udpConn.ReadFromUDP(*bufPtr)
 			if err != nil {
 				return
 			}
 
+			timestamp := time.Now().UnixNano()
+
+			data := (*bufPtr)[:n]
+
+			parts := bytes.SplitN(data, []byte("|"), 2)
+
+			// sender is actually IP:PORT so you can match the IP:port with a name to replace
+			sender := senderAddr.String()
+			if len(parts) == 2 {
+				sender = string(parts[0])
+				data = parts[1]
+			}
+
 			payload := domain.IngestionPayload{
 				Priority:   0,
+				Sender:     sender,
 				IngestedAt: timestamp,
-				Data:       (*bufPtr)[:n],
+				Data:       data,
 				Release: func() {
 					pool.Put(bufPtr)
 				},
