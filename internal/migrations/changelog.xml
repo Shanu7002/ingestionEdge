@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xml>
+<!-- This version and owner should be user to create a tracking migration table -->
+<changelog>
+    <migration>
+        <version>1.0</version>
+        <owner>Shanu7002</owner>
+        <file>001_initial.sql</file>
+    </migration>
+    <migration>
+        <version>2.0</version>
+        <owner>Shanu7002</owner>
+        <file>002_manual_trigger.sql</file>
+    </migration>
+</changelog>
