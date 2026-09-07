@@ -167,6 +167,7 @@ func processPayload(workerID int, payload domain.IngestionPayload, ch *amqp.Chan
 
 	routingKey := "route.metric"
 	if payload.Priority == 1 {
+		// TODO: insert alert in database
 		routingKey = "route.alert"
 	}
 
@@ -187,7 +188,7 @@ func processPayload(workerID int, payload domain.IngestionPayload, ch *amqp.Chan
 
 	if err != nil {
 		log.Printf("Worker %d | Failed to publish payload: %v", workerID, err)
-		// In a production system, you would push this back into a retry queue here.
+		// TODO: insert metric fallback here for retry later
 	}
 
 	if payload.Release != nil {
