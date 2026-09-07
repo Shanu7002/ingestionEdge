@@ -9,10 +9,31 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: secretUser
       RABBITMQ_DEFAULT_PASS: secretPassword
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbitmq_management load_definitions \"/etc/rabbitmq/definitions.json\""
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq-definitions.json:/etc/rabbitmq/definitions.json:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: telemetry-db
+    environment:
+      POSTGRES_USER: secretUser
+      POSTGRES_PASSWORD: secretPassword
+      POSTGRES_DB: edge_ingestion
+      POSTGRES_INITDB_ARGS: "--wal-segsize=64"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secretUser -d edge_ingestion"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -21,38 +42,5 @@ services:
 volumes:
   rabbitmq_data:
     driver: local
-
-#
-#    networks:
-#      - telemetry-net
-#
-#  edge-api:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#    container_name: telemetry-edge-api
-#    ports:
-#      - "8125:8125/udp"
-#      - "8080:8080"
-#      - "9090:9090"
-#    environment:
-#      - RABBITMQ_URL=amqp://secretUser:secretPassword@rabbitmq:5672/
-#    depends_on:
-#      rabbitmq:
-#        condition: service_healthy
-#    deploy:
-#      resources:
-#        limits:
-#          memory: 256M
-#          cpus: "1.0"
-#    networks:
-#      - telemetry-net
-#    restart: unless-stopped
-#
-#volumes:
-#  rabbitmq_data:
-#    driver: local
-#
-#networks:
-#  telemetry-net:
-#    driver: bridge
+  pg_data:
+    driver: local
