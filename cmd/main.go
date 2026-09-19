@@ -40,6 +40,9 @@ func run() error {
 	var err error
 
 	err = starter.HandleWorkerProcess(&wg, alertsQueue, metricsQueue)
+	if err != nil {
+		return fmt.Errorf("Fatal Worker Process error: %v", err)
+	}
 
 	udpConn, err := ingestion.StartUDPServer(":8125", metricsQueue, &wg, udpBufferPool)
 	if err != nil {
