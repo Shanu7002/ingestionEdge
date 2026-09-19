@@ -50,6 +50,7 @@ func handleRunWorker(
 	defer ch.Close()
 
 	handleExchangeConnection(workerID, ch)
+	defer conn.Close()
 
 	runWorkerLoop(
 		workerID,

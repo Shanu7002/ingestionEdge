@@ -53,7 +53,6 @@ func handleRabbitConnection() *amqp.Connection {
 	if err != nil {
 		log.Fatalf("Fatal: Could not connect to RabbitMQ after 5 attempts: %v", err)
 	}
-	defer conn.Close()
 
 	return conn
 }
