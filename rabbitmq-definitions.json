@@ -1,0 +1,23 @@
+{
+  "users": [
+    {
+      "name": "secretUser",
+      "password": "secretPassword",
+      "tags": "administrator"
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "secretUser",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ]
+}
